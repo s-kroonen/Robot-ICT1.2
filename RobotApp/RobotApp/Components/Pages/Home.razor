@@ -1,0 +1,66 @@
+﻿@page "/"
+@using System.ComponentModel.DataAnnotations
+@rendermode InteractiveServer
+
+<h3>Gebruiker opslaan</h3>
+
+<EditForm Model="@model" OnValidSubmit="HandleValidSubmit">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+    <div class="col-sm-6">
+    <div class="form-group mt-2">
+        <label for="inputNaam">Naam</label>
+        <InputText type="text" class="form-control" id="inputNaam" aria-describedby="emailHelp" @bind-Value="@model.Naam" />
+        <ValidationMessage For="@(() => model.Naam)" />
+    </div>
+    <div class="form-group mt-2">
+        <label for="inputLeeftijd">Leeftijd</label>
+        <InputNumber type="number" class="form-control" id="inputLeeftijd" @bind-Value="@model.Leeftijd" />
+         <ValidationMessage For="@(() => model.Leeftijd)" />
+    </div>
+    <div class="form-check mt-2">
+        <InputCheckbox type="checkbox" id="isActief" class="form-check-input" @bind-Value="@model.IsActief"/>
+        <label class="form-check-label" for="isActief">User actief</label>
+        <ValidationMessage For="@(() => model.IsActief)" />
+    </div>
+    <div>
+     <button type="submit" class="btn btn-primary">Gebruiker opslaan</button>
+    </div>
+    </div>
+</EditForm>
+
+@if(isSubmitted)
+{
+    <div class="alert alert-success mt-2" role="alert">
+        Gebruiker opgeslagen
+    </div>
+}
+
+@code {
+
+    private bool isSubmitted = false;
+
+    private UserFormModel model = new UserFormModel();
+    
+    private void HandleValidSubmit()
+    {
+        Console.WriteLine($"Form data incoming for {model.Naam}");
+        isSubmitted = true;
+      
+    }
+
+    @* protected override async Task OnInitializedAsync()
+    {
+        // Load data from your repository
+    } *@
+
+    public class UserFormModel
+    {
+        [Required(ErrorMessage = "Naam is verplicht")]
+        public string? Naam { get; set; }
+
+        [Range(18,100, ErrorMessage = "Leeftijd moet tussen de 18 en 100 zijn")]
+        public int Leeftijd { get; set; }
+        public bool IsActief { get; set; }
+    }
+}
