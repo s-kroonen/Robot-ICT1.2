@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using RobotApp.Components;
 using RobotApp.Data;
+using RobotApp.Repositories;
 using RobotApp.Services.Mqtt;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -8,7 +9,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 
 // Register the Simple MQTT client as an object in the dependency injection container
-builder.Services.AddSingleton(SimpleMqttClient.CreateSimpleMqttClientForHiveMQ("webapp_storm")); 
+builder.Services.AddSingleton(SimpleMqttClient.CreateSimpleMqttClientForHiveMQ("webapp_storm"));
 
 // Configure a MQTT Message Processing Service (that runs continuously in the background)
 // builder.Services.AddHostedService<MqttMessageProcessingService>();
@@ -20,8 +21,15 @@ builder.Services.AddSingleton<RobotStateService>();
 builder.Services.AddSingleton<MqttService>();
 builder.Services.AddSingleton<RobotCommandService>();
 
+builder.Services.AddScoped<IRobotRepository, RobotRepository>();
+builder.Services.AddScoped<IMeasurementRepository, MeasurementRepository>();
+
 builder.Services.AddDbContext<RobotDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("Default")));
+    options.UseMySql(
+        builder.Configuration.GetConnectionString("Default"),
+        ServerVersion.AutoDetect(
+            builder.Configuration.GetConnectionString("Default")
+        )));
 
 
 var app = builder.Build();

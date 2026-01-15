@@ -1,4 +1,8 @@
-﻿using System.Text.Json;
+﻿using RobotApp.Data;
+using RobotApp.Models.Measurements;
+using RobotApp.Repositories;
+using System.Text.Json;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace RobotApp.Services.Mqtt;
 
@@ -7,15 +11,19 @@ public class MqttService : IAsyncDisposable
     private readonly IConfiguration _config;
     private readonly RobotStateService _stateService;
     private readonly SimpleMqttClient _client;
+    private readonly IServiceScopeFactory _scopeFactory;
+
 
     private readonly string _baseTopic;
 
     public MqttService(
         IConfiguration config,
-        RobotStateService stateService)
+        RobotStateService stateService,
+        IServiceScopeFactory scopeFactory)
     {
         _config = config;
         _stateService = stateService;
+        _scopeFactory = scopeFactory;
 
         _baseTopic = _config["Mqtt:BaseTopic"]!;
 
@@ -67,28 +75,72 @@ public class MqttService : IAsyncDisposable
         }
     }
 
-    private void HandleTemperature(string robot, string json)
+    private async Task HandleTemperature(string robot, string json)
     {
         var dto = JsonSerializer.Deserialize<TemperatureDto>(json)!;
+        if (dto == null) return;
+
+        using var scope = _scopeFactory.CreateScope();
+        var robots = scope.ServiceProvider.GetRequiredService<IRobotRepository>();
+        var measurements = scope.ServiceProvider.GetRequiredService<IMeasurementRepository>();
+
+        await robots.GetOrCreateAsync(robot);
+
+        await measurements.SaveTemperatureAsync(new TemperatureMeasurement
+        {
+            RobotName = robot,
+            Value = double.Parse(dto.value),
+            Timestamp = dto.timestamp
+        });
+
         _stateService.Update(robot, s =>
         {
             s.Temperature = double.Parse(dto.value);
         });
     }
 
-    private void HandleHumidity(string robot, string json)
+    private async Task HandleHumidity(string robot, string json)
     {
         var dto = JsonSerializer.Deserialize<HumidityDto>(json)!;
+        if (dto == null) return;
 
+        using var scope = _scopeFactory.CreateScope();
+        var robots = scope.ServiceProvider.GetRequiredService<IRobotRepository>();
+        var measurements = scope.ServiceProvider.GetRequiredService<IMeasurementRepository>();
+
+        await robots.GetOrCreateAsync(robot);
+
+        await measurements.SaveHumidityAsync(new HumidityMeasurement
+        {
+            RobotName = robot,
+            Value = double.Parse(dto.value),
+            Timestamp = dto.timestamp
+        });
         _stateService.Update(robot, s =>
         {
             s.Humidity = double.Parse(dto.value);
         });
     }
 
-    private void HandleState(string robot, string json)
+    private async Task HandleState(string robot, string json)
     {
         var dto = JsonSerializer.Deserialize<StateDto>(json)!;
+        if (dto == null) return;
+
+        using var scope = _scopeFactory.CreateScope();
+        var robots = scope.ServiceProvider.GetRequiredService<IRobotRepository>();
+        var measurements = scope.ServiceProvider.GetRequiredService<IMeasurementRepository>();
+
+        await robots.GetOrCreateAsync(robot);
+
+        await measurements.SaveStateAsync(new StateSnapshot
+        {
+            RobotName = robot,
+            State = dto.state,
+            DisplayState = dto.displayState,
+            Message = dto.message,
+            Timestamp = dto.timestamp,
+        });
 
         _stateService.Update(robot, s =>
         {
@@ -98,7 +150,7 @@ public class MqttService : IAsyncDisposable
         });
     }
 
-    private void HandleAlert(string robot, string json)
+    private async Task HandleAlert(string robot, string json)
     {
         var dto = JsonSerializer.Deserialize<AlertDto>(json)!;
 
