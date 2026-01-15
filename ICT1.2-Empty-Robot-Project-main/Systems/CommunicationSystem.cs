@@ -271,7 +271,8 @@ public class CommunicationSystem
                 sensors = lineSystem.GetSensorStatesJson(),
                 timestamp = DateTime.UtcNow.ToString("O")
             };
-
+            if (lineData.sensors == null)
+                return;
             var json = JsonSerializer.Serialize(lineData);
             if (mqttClient != null)
                 await mqttClient.PublishMessage(json, topicLineDetection);

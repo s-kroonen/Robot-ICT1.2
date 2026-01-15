@@ -98,8 +98,10 @@ public class LineSystem : IUpdatable
     /// <summary>
     /// Get all line sensor states as a formatted string for MQTT
     /// </summary>
-    public string GetSensorStatesJson()
+    public string? GetSensorStatesJson()
     {
+        if (irSensors.Count == 0)
+            return null;
         var states = irSensors.Keys.Select(sensorId =>
         {
             var sensorConfig = config.GetSensor(sensorId);

@@ -71,7 +71,6 @@ public class DriveSystem : IUpdatable
     {
         if (DriveActive)
         {
-            Console.WriteLine(currentState + "." + actualSpeed);
             Robot.Motors(
                 ToRobotSpeedValue(actualSpeed),
                 ToRobotSpeedValue(actualSpeed));
@@ -141,7 +140,6 @@ public class DriveSystem : IUpdatable
     {
         if (DriveActive)
         {
-            Console.WriteLine(currentState + "," + actualSpeed + "," + speed + "," + steerInvert);
             if (steerInvert)
             {
                 Robot.Motors(

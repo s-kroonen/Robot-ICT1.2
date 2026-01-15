@@ -56,7 +56,7 @@ public class AlertSystem : IUpdatable
         }
         
         alertLed.SetOn();
-        Console.WriteLine($"DEBUG: Alert ON - {message}");
+        // Console.WriteLine($"DEBUG: Alert ON - {message}");
     }
 
     /// <summary>
@@ -68,7 +68,7 @@ public class AlertSystem : IUpdatable
         alertLed.SetOff();
         previousMessage = string.Empty;
         AlertActive = false;
-        Console.WriteLine("DEBUG: Alert OFF");
+        // Console.WriteLine("DEBUG: Alert OFF");
     }
 
     /// <summary>

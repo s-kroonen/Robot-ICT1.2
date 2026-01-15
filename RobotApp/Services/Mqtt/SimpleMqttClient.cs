@@ -4,7 +4,7 @@ using HiveMQtt.MQTT5.ReasonCodes;
 using HiveMQtt.MQTT5.Types;
 using System.Text;
 
-namespace RobotApp.Components.Layout.Classes;
+namespace RobotApp.Services.Mqtt;
 
 /// <summary>
 /// Deze klasse 'wrapt' de HiveMQClient die alle code bevat om
@@ -28,7 +28,7 @@ public class SimpleMqttClient : IDisposable
     /// </summary>
     public SimpleMqttClient(SimpleMqttClientConfiguration options)
     {
-        this.ClientId = options.ClientId;
+        ClientId = options.ClientId;
 
         _client = new HiveMQClient(new()
         {
@@ -66,7 +66,7 @@ public class SimpleMqttClient : IDisposable
     /// <param name="message">Het bericht dat verstuurd moet worden</param>
     public async Task PublishMessage(SimpleMqttMessage message)
     {
-        await this.OpenAndVerifyConnection();
+        await OpenAndVerifyConnection();
 
         var mqttMessage = new MQTT5PublishMessage
         {
@@ -95,7 +95,7 @@ public class SimpleMqttClient : IDisposable
     /// </summary>
     public async Task SubscribeToTopic(string topic)
     {
-        await this.OpenAndVerifyConnection();
+        await OpenAndVerifyConnection();
         await _client.SubscribeAsync(topic, QualityOfService.ExactlyOnceDelivery).ConfigureAwait(false);
     }
 
@@ -111,7 +111,7 @@ public class SimpleMqttClient : IDisposable
             Message = DefaultEncoding.GetString(e.PublishMessage.Payload!)
         };
 
-        this.OnMessageReceived?.Invoke(this, msg);
+        OnMessageReceived?.Invoke(this, msg);
     }
 
     /// <summary>
@@ -121,7 +121,7 @@ public class SimpleMqttClient : IDisposable
     private async Task OpenAndVerifyConnection()
     {
         // Open de verbinding wanneer deze niet open is
-        if (!this._client.IsConnected())
+        if (!_client.IsConnected())
         {
             var connectionResult = await _client.ConnectAsync().ConfigureAwait(false);
 

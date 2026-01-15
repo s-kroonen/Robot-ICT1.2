@@ -1,5 +1,7 @@
+using Microsoft.EntityFrameworkCore;
 using RobotApp.Components;
-using RobotApp.Components.Layout.Classes;
+using RobotApp.Data;
+using RobotApp.Services.Mqtt;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -13,7 +15,13 @@ builder.Services.AddSingleton(SimpleMqttClient.CreateSimpleMqttClientForHiveMQ("
 // Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
-builder.Services.AddTransient<MagicNumberService>();
+
+builder.Services.AddSingleton<RobotStateService>();
+builder.Services.AddSingleton<MqttService>();
+builder.Services.AddSingleton<RobotCommandService>();
+
+builder.Services.AddDbContext<RobotDbContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("Default")));
 
 
 var app = builder.Build();
@@ -25,7 +33,11 @@ if (!app.Environment.IsDevelopment())
     // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
     app.UseHsts();
 }
-
+using (var scope = app.Services.CreateScope())
+{
+    var mqtt = scope.ServiceProvider.GetRequiredService<MqttService>();
+    await mqtt.StartAsync();
+}
 app.UseHttpsRedirection();
 
 

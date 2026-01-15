@@ -65,7 +65,7 @@ public class StateManager
                 Timestamp = lastStateChange
             });
 
-            Console.WriteLine($"DEBUG: Robot state changed from {previousState} to {newState}. Message: {message}");
+            // Console.WriteLine($"DEBUG: Robot state changed from {previousState} to {newState}. Message: {message}");
         }
     }
 

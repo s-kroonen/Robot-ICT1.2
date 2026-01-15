@@ -130,10 +130,10 @@ public class RobotConfiguration
             .WithDirection(SensorDirection.ReverseRight));
 
         // Add environmental sensors
-        // config.AddSensor(new SensorConfiguration("dht11", SensorType.DHT11, 26));
+        config.AddSensor(new SensorConfiguration("dht11", SensorType.DHT11, 26));
 
-        config.AddSensor(new SensorConfiguration("rgb_color", SensorType.RGBColor, 0)
-            .WithI2CAddress(0x29));
+        // config.AddSensor(new SensorConfiguration("rgb_color", SensorType.RGBColor, 0)
+        //     .WithI2CAddress(0x29));
 
         return config;
     }
@@ -170,3 +170,4 @@ public class CommunicationConfiguration
     public int DataPublishIntervalMs { get; set; } = 300;  // How often to publish sensor data
     public int StatusPublishIntervalMs { get; set; } = 1000; // How often to publish robot state
 }
+ 

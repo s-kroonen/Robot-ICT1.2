@@ -1,0 +1,73 @@
+﻿@page "/live"
+@using RobotApp.Models
+@using RobotApp.Models.Live
+@using RobotApp.Services.Mqtt
+@inject RobotStateService StateService
+@inject RobotCommandService Commands
+@inject MqttService Mqtt
+
+@rendermode InteractiveServer
+
+
+<h3>Live Robot Dashboard</h3>
+
+<select @bind="SelectedRobot">
+    <option disabled selected value="">Select robot</option>
+    @foreach (var r in StateService.Robots)
+    {
+        <option value="@r">@r</option>
+    }
+</select>
+
+@if (LiveState is not null)
+{
+    <hr />
+
+    <h4>@LiveState.DisplayState</h4>
+    <p>@LiveState.Message</p>
+
+    <p>🌡 Temperature: @LiveState.Temperature °C</p>
+    <p>💧 Humidity: @LiveState.Humidity %</p>
+
+    @if (LiveState.AlertActive)
+    {
+        <p style="color:red">⚠ ALERT: @LiveState.AlertMessage</p>
+    }
+
+    @* <button @onclick="() => Commands.Drive(SelectedRobot!, " forward", 0.5)"> *@
+    @*     Forward *@
+    @* </button> *@
+
+    <button @onclick="() => Commands.EmergencyStop(SelectedRobot!)">
+        Emergency Stop
+    </button>
+
+}
+
+@code {
+    private string? SelectedRobot;
+
+    private RobotLiveState? LiveState =>
+        SelectedRobot is null
+            ? null
+            : StateService.Get(SelectedRobot);
+
+    protected override void OnInitialized()
+    {
+        StateService.OnChange += StateChanged;
+    }
+    private void StateChanged()
+    {
+        // Make sure rendering happens on the UI thread
+        InvokeAsync(StateHasChanged);
+    }
+    private async Task Send(string command)
+    {
+        if (SelectedRobot is null) return;
+        await Mqtt.SendCommand(SelectedRobot, command);
+    }
+    public void Dispose()
+    {
+        StateService.OnChange -= StateChanged;
+    }
+}

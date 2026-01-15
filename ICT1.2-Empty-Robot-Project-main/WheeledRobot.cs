@@ -205,22 +205,22 @@ public class WheeledRobot : IUpdatable, LineCallback
             driveSystem?.Update();
             alertSystem?.Update();
             dataSystem?.Update();
-            colorSystem?.Update();
-            lineSystem?.Update();
+            // colorSystem?.Update();
+            // lineSystem?.Update();
 
             // Publish data to MQTT
             if (communicationSystem != null && obstacleDetectionSystem != null && lineSystem != null && colorSystem != null)
             {
                 await communicationSystem.PublishRobotState(stateManager);
                 await communicationSystem.PublishObstacleData(obstacleDetectionSystem);
-                await communicationSystem.PublishLineData(lineSystem);
-                await communicationSystem.PublishColorData(colorSystem.color);
+                // await communicationSystem.PublishLineData(lineSystem);
+                // await communicationSystem.PublishColorData(colorSystem.color);
             }
 
             int distance = obstacleDetectionSystem?.ObstacleDistance ?? 0;
 
             // Handle obstacle detection
-            if (distance < 20 && alertSystem != null && !alertSystem.EmergencyStop && !obstacleStop)
+            if (distance < 5 && alertSystem != null && !alertSystem.EmergencyStop && !obstacleStop)
             {
                 obstacleStop = true;
                 driveSystem?.EmergencyStop();
@@ -229,7 +229,7 @@ public class WheeledRobot : IUpdatable, LineCallback
                 alertSystem.AlertOn($"Obstacle\nDistance {distance} cm");
                 if (communicationSystem != null) await communicationSystem.PublishAlertState(true, $"Obstacle at {distance}cm");
             }
-            else if (distance >= 5 && obstacleStop && alertSystem != null && !alertSystem.EmergencyStop)
+            else if (distance >= 25 && obstacleStop && alertSystem != null && !alertSystem.EmergencyStop)
             {
                 obstacleStop = false;
                 if (driveSystem != null) driveSystem.DriveActive = true;
@@ -241,17 +241,17 @@ public class WheeledRobot : IUpdatable, LineCallback
             // Adjust speed based on distance
             if (driveSystem != null)
             {
-                if (distance >= 5 && distance < 15)
+                if (distance >= 10 && distance < 20)
                 {
-                    driveSystem.targetSpeed = 0.15;
+                    driveSystem.targetSpeed = 0.1;
                 }
-                else if (distance >= 15 && distance < 40)
+                else if (distance >= 20 && distance < 40)
                 {
                     driveSystem.targetSpeed = 0.2;
                 }
                 else if (distance >= 40)
                 {
-                    driveSystem.targetSpeed = 0.2;
+                    driveSystem.targetSpeed = 0.5;
                 }
             }
         }

@@ -4,7 +4,7 @@ using System.Collections.Generic;
 
 public class ObstacleDetectionSystem : IUpdatable
 {
-    private const int ScanIntervalMilliseconds = 200;
+    private const int ScanIntervalMilliseconds = 500;
     private readonly RobotConfiguration config;
     private readonly Dictionary<string, Ultrasonic> ultrasonicSensors = new();
     private PeriodTimer scanIntervalTimer;

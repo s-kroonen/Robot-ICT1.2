@@ -18,7 +18,7 @@ try
     while (true)
     {
         wheeledRobot.Update();
-        Robot.Wait(1);
+        Robot.Wait(5);
     }
 }
 catch (Exception ex)
