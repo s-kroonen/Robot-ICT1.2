@@ -47,7 +47,7 @@ public class DHT11new
             {
                 pulses[i] = Robot.PulseIn(_pin, PinValue.High, 100);
                 if (pulses[i] == 0)
-                    return null;
+                    return [];
             }
         return pulses;
     }

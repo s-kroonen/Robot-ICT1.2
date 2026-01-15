@@ -7,10 +7,22 @@ using GyroscopeCompass;
 using Avans.StatisticalRobot;
 using GyroscopeCompass.GyroscopeCompass;
 
-WheeledRobot wheeledRobot = new WheeledRobot();
-
-while (true)
+try
 {
-    wheeledRobot.Update();
-    Robot.Wait(1);
+    var wheeledRobot = new WheeledRobot();
+    
+    // Initialize the robot asynchronously
+    await wheeledRobot.Init();
+    
+    // Main robot loop
+    while (true)
+    {
+        wheeledRobot.Update();
+        Robot.Wait(1);
+    }
+}
+catch (Exception ex)
+{
+    Console.WriteLine($"FATAL ERROR: {ex.Message}");
+    Console.WriteLine($"Stack trace: {ex.StackTrace}");
 }

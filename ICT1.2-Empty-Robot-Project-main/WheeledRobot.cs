@@ -2,126 +2,273 @@ using Avans.StatisticalRobot;
 using Avans.StatisticalRobot.Interfaces;
 using SimpleMqtt;
 
+/// <summary>
+/// Main WheeledRobot class
+/// Orchestrates all robot systems and manages state transitions
+/// </summary>
 public class WheeledRobot : IUpdatable, LineCallback
 {
-    // Define local constants for hardware related details
-    const int AlertLedPinNumber = 24;
-    const int EmergencyStopButtonPinNumber = 25;
-    const byte LcdAddress = 0x3E; // I2C address for the LCD grove module
+    private readonly RobotConfiguration config;
+    private readonly StateManager stateManager;
 
-    private DriveSystem driveSystem;
-    private ObstacleDetectionSystem obstacleDetectionSystem;
-    private AlertSystem alertSystem;
-    private CommunicationSystem communicationSystem;
-    private DataSystem dataSystem;
-    private ColorSystem colorSystem;
-    private LineSystem lineSystem;
+    // Systems
+    private DriveSystem? driveSystem;
+    private ObstacleDetectionSystem? obstacleDetectionSystem;
+    private AlertSystem? alertSystem;
+    private CommunicationSystem? communicationSystem;
+    private DataSystem? dataSystem;
+    private ColorSystem? colorSystem;
+    private LineSystem? lineSystem;
 
-    private Led alertLed;
-    private Button emergencyStopButton;
-    private LCD16x2 lcd;
-    private bool stopped = false;
-    private string name = "John";
+    // Hardware
+    private Led? alertLed;
+    private Button? emergencyStopButton;
+    private LCD16x2? lcd;
+
+    // State tracking
+    private bool obstacleStop = false;
 
     public WheeledRobot()
     {
         Console.WriteLine("DEBUG: WheeledRobot constructor called");
 
-        driveSystem = new DriveSystem();
+        // Load or create configuration
+        config = RobotConfiguration.CreateDefaultConfiguration();
+        stateManager = new StateManager();
 
-        obstacleDetectionSystem = new ObstacleDetectionSystem();
+        try
+        {
+            // Initialize hardware
+            alertLed = new Led(config.AlertLedPin);
+            emergencyStopButton = new Button(config.EmergencyStopButtonPin);
+            lcd = new LCD16x2(config.LcdI2CAddress);
 
-        alertLed = new Led(AlertLedPinNumber);
+            // Initialize systems with configuration
+            driveSystem = new DriveSystem(config);
+            obstacleDetectionSystem = new ObstacleDetectionSystem(config);
+            alertSystem = new AlertSystem(config, alertLed, emergencyStopButton, lcd);
+            communicationSystem = new CommunicationSystem(this, config);
+            dataSystem = new DataSystem(config, communicationSystem);
+            colorSystem = new ColorSystem(config);
+            lineSystem = new LineSystem(config, this);
 
-        emergencyStopButton = new Button(EmergencyStopButtonPinNumber);
+            // Wire up event handlers
+            alertSystem.EmergencyStopChanged += OnEmergencyStopChanged;
+            communicationSystem.CommandReceived += OnCommandReceived;
+            communicationSystem.EmergencyStopCommandReceived += OnEmergencyStopCommand;
+            communicationSystem.AlertCommandReceived += OnAlertCommand;
 
-        lcd = new LCD16x2(LcdAddress);
-
-        alertSystem = new AlertSystem(alertLed, emergencyStopButton, lcd);
-
-        communicationSystem = new CommunicationSystem(this, name);
-
-        dataSystem = new DataSystem(communicationSystem);
-
-        colorSystem = new ColorSystem();
-
-        lineSystem = new LineSystem(this);
+            stateManager.SetState(RobotStateEnum.Initializing, "Starting up");
+            Console.WriteLine("DEBUG: WheeledRobot systems initialized successfully");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"ERROR: Failed to initialize WheeledRobot: {ex.Message}");
+            stateManager.SetState(RobotStateEnum.Fault, $"Initialization failed: {ex.Message}");
+        }
     }
 
     /// <summary>
-    /// Initializes the WheeledRobot
+    /// Initialize the robot (async setup like network connections)
     /// </summary>
-    /// <returns></returns>
     public async Task Init()
     {
         Console.WriteLine("DEBUG: WheeledRobot Init() called");
-        // Temporarily disable motors for quick testing during debugging
-        driveSystem.DriveActive = false;
+        try
+        {
+            // Temporarily disable motors for quick testing during debugging
+            if (driveSystem != null) driveSystem.DriveActive = false;
 
-        // Configure the CommunicationSystem
-        await communicationSystem.Init();
-        await communicationSystem.SendAlertState("On");
+            // Configure the CommunicationSystem
+            if (communicationSystem != null) await communicationSystem.Init();
 
-        // Let the user know that we're up and running
-        lcd.SetText("SimpleRobot");
-        Console.WriteLine("DEBUG: WheeledRobot Init() finished");
+            // Display startup message
+            if (lcd != null) lcd.SetText("SimpleRobot");
+            
+            stateManager.SetState(RobotStateEnum.Ready, "Robot ready");
+            Console.WriteLine("DEBUG: WheeledRobot Init() finished");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"ERROR: Failed to initialize robot: {ex.Message}");
+            stateManager.SetState(RobotStateEnum.Fault, $"Init failed: {ex.Message}");
+        }
     }
 
-    public void HandleMessage(SimpleMqttMessage msg)
+    /// <summary>
+    /// Handle emergency stop state changes from button or MQTT
+    /// </summary>
+    private void OnEmergencyStopChanged(object? sender, bool isActive)
     {
-        Console.WriteLine($"Message received (topic:msg) = {msg.Topic}:{msg.Message}");
-        if(msg.Topic == "Drive"){
+        if (isActive)
+        {
+            stateManager.SetState(RobotStateEnum.EmergencyStopped, "Emergency stop activated");
+            driveSystem?.EmergencyStop();
+            if (driveSystem != null) driveSystem.DriveActive = false;
+        }
+        else
+        {
+            stateManager.SetState(RobotStateEnum.Operating, "Resuming operation");
+            if (driveSystem != null) driveSystem.DriveActive = true;
+        }
+    }
+
+    /// <summary>
+    /// Handle emergency stop commands from MQTT
+    /// </summary>
+    private void OnEmergencyStopCommand(object? sender, bool stopState)
+    {
+        alertSystem?.SetEmergencyStop(stopState, stopState ? "MQTT Emergency Stop" : "");
+    }
+
+    /// <summary>
+    /// Handle alert commands from MQTT
+    /// </summary>
+    private void OnAlertCommand(object? sender, string message)
+    {
+        if (!string.IsNullOrEmpty(message))
+        {
+            alertSystem?.DisplayMessage(message);
+            Console.WriteLine($"DEBUG: Alert command from MQTT: {message}");
+        }
+    }
+
+    /// <summary>
+    /// Handle drive and other commands from MQTT
+    /// </summary>
+    private void OnCommandReceived(object? sender, MqttCommand cmd)
+    {
+        Console.WriteLine($"DEBUG: Command received: type={cmd.Type}, direction={cmd.Direction}, value={cmd.Value}");
+
+        switch (cmd.Type)
+        {
+            case "drive":
+                // Handle drive command
+                // cmd.Direction: forward, backward, left, right
+                // cmd.Value: speed (0.0 - 1.0)
+                HandleDriveCommand(cmd.Direction, cmd.Value);
+                break;
+
+            case "message":
+                // Handle custom message
+                alertSystem?.DisplayMessage(cmd.Message);
+                break;
+
+            default:
+                Console.WriteLine($"DEBUG: Unknown command type: {cmd.Type}");
+                break;
+        }
+    }
+
+    /// <summary>
+    /// Handle drive commands from MQTT
+    /// </summary>
+    private void HandleDriveCommand(string direction, double speed)
+    {
+        if (stateManager.CurrentState == RobotStateEnum.EmergencyStopped)
+        {
+            Console.WriteLine("DEBUG: Cannot drive - emergency stop active");
+            return;
+        }
+
+        speed = Math.Clamp(speed, -1.0, 1.0); // Clamp to valid range
+
+        switch (direction.ToLower())
+        {
+            case "forward":
+                if (driveSystem != null) driveSystem.targetSpeed = speed * config.DriveConfig.MaxSpeed;
+                stateManager.SetState(RobotStateEnum.Operating, "Driving forward");
+                break;
+
+            case "backward":
+                if (driveSystem != null) driveSystem.targetSpeed = -speed * config.DriveConfig.MaxSpeed;
+                stateManager.SetState(RobotStateEnum.Operating, "Driving backward");
+                break;
+
+            case "stop":
+                if (driveSystem != null) driveSystem.targetSpeed = 0.0;
+                stateManager.SetState(RobotStateEnum.Ready, "Stopped by command");
+                break;
+
+            default:
+                Console.WriteLine($"DEBUG: Unknown drive direction: {direction}");
+                break;
         }
     }
 
     public async void Update()
     {
-        obstacleDetectionSystem.Update();
-        driveSystem.Update();
-        alertSystem.Update();
-        dataSystem.Update();
-        colorSystem.Update();
-        lineSystem.Update();
+        try
+        {
+            // Update all systems
+            obstacleDetectionSystem?.Update();
+            driveSystem?.Update();
+            alertSystem?.Update();
+            dataSystem?.Update();
+            colorSystem?.Update();
+            lineSystem?.Update();
 
-        int distance = obstacleDetectionSystem.ObstacleDistance;
-        await communicationSystem.SendDistanceMeasurement(distance);
-        // Console.WriteLine($"DEBUG: Distance {distance} cm");
+            // Publish data to MQTT
+            if (communicationSystem != null && obstacleDetectionSystem != null && lineSystem != null && colorSystem != null)
+            {
+                await communicationSystem.PublishRobotState(stateManager);
+                await communicationSystem.PublishObstacleData(obstacleDetectionSystem);
+                await communicationSystem.PublishLineData(lineSystem);
+                await communicationSystem.PublishColorData(colorSystem.color);
+            }
 
-        if (distance < 3 && !stopped || alertSystem.EmergencyStop || driveSystem.manualControl)
-        {
-            stopped = true;
-            driveSystem.EmergencyStop();
-            driveSystem.DriveActive = false;
-            alertSystem.AlertOn($"Emergency stop\nDistance {distance} cm");
-            await communicationSystem.SendAlertState("On");
-        }
-        else if (distance >= 5 && stopped)
-        {
-            stopped = false;
-            driveSystem.DriveActive = true;
-            alertSystem.AlertOff();
-            await communicationSystem.SendAlertState("Off");
-        }
+            int distance = obstacleDetectionSystem?.ObstacleDistance ?? 0;
 
-        if (distance >= 5 && distance < 15)
-        {
-            driveSystem.targetSpeed = 0.2;
+            // Handle obstacle detection
+            if (distance < 20 && alertSystem != null && !alertSystem.EmergencyStop && !obstacleStop)
+            {
+                obstacleStop = true;
+                driveSystem?.EmergencyStop();
+                if (driveSystem != null) driveSystem.DriveActive = false;
+                stateManager.SetState(RobotStateEnum.Stopped, $"Obstacle detected: {distance} cm");
+                alertSystem.AlertOn($"Obstacle\nDistance {distance} cm");
+                if (communicationSystem != null) await communicationSystem.PublishAlertState(true, $"Obstacle at {distance}cm");
+            }
+            else if (distance >= 5 && obstacleStop && alertSystem != null && !alertSystem.EmergencyStop)
+            {
+                obstacleStop = false;
+                if (driveSystem != null) driveSystem.DriveActive = true;
+                stateManager.SetState(RobotStateEnum.Operating, "Obstacle cleared");
+                alertSystem.AlertOff();
+                if (communicationSystem != null) await communicationSystem.PublishAlertState(false);
+            }
+
+            // Adjust speed based on distance
+            if (driveSystem != null)
+            {
+                if (distance >= 5 && distance < 15)
+                {
+                    driveSystem.targetSpeed = 0.15;
+                }
+                else if (distance >= 15 && distance < 40)
+                {
+                    driveSystem.targetSpeed = 0.2;
+                }
+                else if (distance >= 40)
+                {
+                    driveSystem.targetSpeed = 0.2;
+                }
+            }
         }
-        else if (distance >= 15 && distance < 40)
+        catch (Exception ex)
         {
-            driveSystem.targetSpeed = 0.2;
-        }
-        else if (distance >= 40)
-        {
-            driveSystem.targetSpeed = 0.2;
+            Console.WriteLine($"ERROR: Exception in robot Update: {ex.Message}");
+            stateManager.SetState(RobotStateEnum.Fault, $"Update error: {ex.Message}");
         }
     }
 
+    /// <summary>
+    /// Callback for line detection system
+    /// </summary>
     public void lineCallback(bool left, bool forward, bool right)
     {
-        Console.WriteLine(left.ToString() + "." + forward.ToString() + "." + right.ToString());
-        driveSystem.LineInput(left,forward,right);
+        Console.WriteLine($"Line detection: left={left}, forward={forward}, right={right}");
+        driveSystem?.LineInput(left, forward, right);
     }
-
 }
 

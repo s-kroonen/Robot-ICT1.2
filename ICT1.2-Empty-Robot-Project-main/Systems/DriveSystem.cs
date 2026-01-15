@@ -3,34 +3,50 @@ using System.Diagnostics;
 using Avans.StatisticalRobot;
 using Avans.StatisticalRobot.Interfaces;
 
+/// <summary>
+/// Drive system for robot motor control
+/// Uses configuration for motor parameters
+/// </summary>
 public class DriveSystem : IUpdatable
 {
-    private double maxSpeed = 0.2;
-    public double sensitivity = 1;
-    public double maxTurning = 0.2;
-    public double starting = 0.2;
+    private readonly RobotConfiguration config;
+    private double maxSpeed;
+    public double sensitivity;
+    public double maxTurning;
+    public double starting;
+    public double speedStep;
 
-    public double speedStep = 0.05,
-    targetSpeed, actualSpeed;
-
-    private RobotState currentState = RobotState.Forward;
-
-    public bool DriveActive { get; set; } = true;
-    private double time, steer;
-    public bool manualControl;
-
+    public double targetSpeed;
+    public double actualSpeed;
 
     private enum RobotState
     {
         Forward,
         TurnLeft,
-        TurnRight
+        TurnRight,
+        Reverse
     }
 
-    public DriveSystem()
+    private RobotState currentState = RobotState.Forward;
+    public bool DriveActive { get; set; } = true;
+    private double time, steer;
+    public bool manualControl;
+
+    public DriveSystem(RobotConfiguration config)
     {
+        this.config = config;
+
+        // Load from configuration
+        maxSpeed = config.DriveConfig.MaxSpeed;
+        sensitivity = config.DriveConfig.Sensitivity;
+        maxTurning = config.DriveConfig.MaxTurning;
+        starting = config.DriveConfig.StartingTurn;
+        speedStep = config.DriveConfig.SpeedStep;
+
         targetSpeed = 0.0;
         actualSpeed = 0.0;
+
+        Console.WriteLine("DEBUG: DriveSystem initialized with configuration");
     }
 
     private short ToRobotSpeedValue(double speed)
@@ -44,11 +60,11 @@ public class DriveSystem : IUpdatable
             speed = maxSpeed;
         }
         return (short)Math.Round(speed * 300.0);
-
     }
+
     public void manual(int right, int left)
     {
-
+        // Placeholder for manual control
     }
 
     private void ControlRobotMotorSpeeds()
@@ -57,9 +73,8 @@ public class DriveSystem : IUpdatable
         {
             Console.WriteLine(currentState + "." + actualSpeed);
             Robot.Motors(
-                ToRobotSpeedValue(actualSpeed * -1),
-                ToRobotSpeedValue(actualSpeed * -1));
-
+                ToRobotSpeedValue(actualSpeed),
+                ToRobotSpeedValue(actualSpeed));
         }
     }
 
@@ -115,40 +130,11 @@ public class DriveSystem : IUpdatable
             steer = maxTurning;
         }
         TurnRelative(steer, steerInvert);
-
     }
 
     public void LineInput(bool left, bool forward, bool right)
     {
-        // Set the robot's state based on the line sensor input
-        if (forward && left && right)
-        {
-            // currentState = RobotState.Forward;
-        }
-        else if (left)
-        {
-            // if (currentState != RobotState.TurnLeft)
-            // {
-            //     actualSpeed = 0;
-            // }
-            currentState = RobotState.TurnLeft;
-        }
-        else if (right)
-        {
-            // if (currentState != RobotState.TurnRight)
-            // {
-            //     actualSpeed = 0;
-            // }
-            currentState = RobotState.TurnRight;
-        }
-        else if (forward)
-        {
-            // if (currentState != RobotState.Forward)
-            // {
-            //     actualSpeed = 0;
-            // }
-            currentState = RobotState.Forward;
-        }
+        // Placeholder for line following input
     }
 
     private void TurnRelative(double speed, bool steerInvert)
@@ -159,16 +145,15 @@ public class DriveSystem : IUpdatable
             if (steerInvert)
             {
                 Robot.Motors(
-                        ToRobotSpeedValue((actualSpeed - speed) * -1),
-                        ToRobotSpeedValue(((actualSpeed + speed) * -1) + 0.1));
+                        ToRobotSpeedValue((actualSpeed - speed)),
+                        ToRobotSpeedValue(((actualSpeed + speed)) + 0.1));
             }
             else
             {
                 Robot.Motors(
-                        ToRobotSpeedValue((actualSpeed + speed) * -1),
-                        ToRobotSpeedValue((actualSpeed - speed) * -1));
+                        ToRobotSpeedValue((actualSpeed + speed)),
+                        ToRobotSpeedValue((actualSpeed - speed)));
             }
         }
     }
-
 }

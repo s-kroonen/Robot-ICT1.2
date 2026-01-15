@@ -2,6 +2,7 @@
 using HiveMQtt.Client.Events;
 using HiveMQtt.MQTT5.ReasonCodes;
 using HiveMQtt.MQTT5.Types;
+using System.Security;
 using System.Text;
 
 namespace SimpleMqtt;
@@ -157,7 +158,7 @@ public class SimpleMqttClient : IDisposable
             ClientId = clientId, // Dit clientid moet uniek zijn binnen de broker
             TimeoutInMs = 10_000, // Standaard time-out bij het maken van een verbinding (5 seconden)
             UserName = "", // Public HiveMQ MQTT broker doesn't request a username and password
-            Password = ""
+            Password = null
         });
 
         return mqttWrapper;
@@ -202,7 +203,7 @@ public class SimpleMqttClientConfiguration
     /// <summary>
     /// Wachtwoord wat hoort bij de username
     /// </summary>
-    public string? Password { get; set; }
+    public SecureString? Password { get; set; }
 }
 
 /// <summary>
