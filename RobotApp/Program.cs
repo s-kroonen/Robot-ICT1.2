@@ -8,14 +8,15 @@ var builder = WebApplication.CreateBuilder(args);
 
 
 
-// Register the Simple MQTT client as an object in the dependency injection container
-builder.Services.AddSingleton(SimpleMqttClient.CreateSimpleMqttClientForHiveMQ("webapp_storm"));
-
 // Configure a MQTT Message Processing Service (that runs continuously in the background)
 // builder.Services.AddHostedService<MqttMessageProcessingService>();
 // Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
+
+
+// Register the Simple MQTT client as an object in the dependency injection container
+builder.Services.AddSingleton(SimpleMqttClient.CreateSimpleMqttClientForHiveMQ("webapp_storm"));
 
 builder.Services.AddSingleton<RobotStateService>();
 builder.Services.AddSingleton<MqttService>();
@@ -31,6 +32,7 @@ builder.Services.AddDbContext<RobotDbContext>(options =>
             builder.Configuration.GetConnectionString("Default")
         )));
 
+builder.Services.AddBlazorBootstrap();
 
 var app = builder.Build();
 

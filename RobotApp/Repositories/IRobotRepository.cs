@@ -6,5 +6,6 @@ namespace RobotApp.Repositories
     {
         Task<Robot> GetOrCreateAsync(string name);
         Task<Robot?> GetByNameAsync(string name);
+        Task<IReadOnlyList<Robot>> GetAllAsync();
     }
 }

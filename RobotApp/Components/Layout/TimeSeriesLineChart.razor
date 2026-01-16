@@ -1,0 +1,112 @@
+﻿@using BlazorBootstrap
+@rendermode InteractiveServer
+
+@if (Data.Any())
+{
+    <LineChart @ref="chart" Class="mb-4" />
+}
+else
+{
+    <p class="text-muted">No data available.</p>
+}
+
+@code {
+    [Parameter] public IReadOnlyList<(DateTime Time, double Value)> Data { get; set; } = [];
+    [Parameter] public string Title { get; set; } = "";
+    [Parameter] public string YAxisLabel { get; set; } = "";
+
+    private LineChart chart = default!;
+    private bool needsUpdate;
+
+    protected override void OnParametersSet()
+    {
+        needsUpdate = true;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!needsUpdate || chart is null)
+            return;
+
+        var (chartData, options) = BuildChart();
+        if (firstRender)
+            await chart.InitializeAsync(chartData, options);
+        else
+            await chart.UpdateAsync(chartData, options);
+
+        needsUpdate = false;
+    }
+
+    private (ChartData, LineChartOptions) BuildChart()
+    {
+        var labels = Data.Select(d => d.Time.ToLocalTime().ToString("yyyy-MM-dd HH:mm")).ToList();
+        var values = Data.Select(d => (double?)d.Value).ToList();
+        int count = values.Count;
+
+        var chartData = new ChartData
+        {
+            Labels = labels,
+            Datasets = new List<IChartDataset>
+            {
+                new LineChartDataset
+                {
+                    BorderColor = "rgb(220, 53, 69)",          // line color
+                    BackgroundColor = "rgba(220, 53, 69, 0.2)",// area (if Fill=true)
+
+                    PointBackgroundColor = Enumerable.Repeat("rgb(220, 53, 69)",count).ToList(),
+                    PointBorderColor = Enumerable.Repeat("rgb(220, 53, 69)",count).ToList(),
+                    Label = YAxisLabel,
+                    Data = values,
+                    BorderWidth = 2,
+                    PointRadius = Enumerable.Repeat(3d, count).ToList(),
+                    PointHoverRadius = Enumerable.Repeat(6d, count).ToList(),
+                    Fill = false
+                }
+            }
+        };
+
+        var options = new LineChartOptions
+        {
+            Responsive = true,
+            Interaction = new Interaction
+            {
+                Mode = InteractionMode.Index,
+                Intersect = false
+            },
+            Plugins = new LineChartPlugins
+            {
+                Tooltip = new ChartPluginsTooltip
+                {
+                    Enabled = true
+                },
+                Title = new ChartPluginsTitle
+                {
+                    Display = true,
+                    Text = Title
+                }
+            },
+            Scales = new Scales
+            {
+                X = new ChartAxes
+                {
+                    Title = new ChartAxesTitle
+                    {
+                        Display = true,
+                        Text = "Time"
+                    }
+                },
+                Y = new ChartAxes
+                {
+                    BeginAtZero = false,
+                    Title = new ChartAxesTitle
+                    {
+                        Display = true,
+                        Text = YAxisLabel
+                    }
+                }
+            }
+        };
+
+        return (chartData, options);
+    }
+}

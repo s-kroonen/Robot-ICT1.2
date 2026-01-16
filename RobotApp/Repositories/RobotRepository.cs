@@ -30,4 +30,10 @@ public class RobotRepository : IRobotRepository
 
         return robot;
     }
+    public async Task<IReadOnlyList<Robot>> GetAllAsync()
+    {
+        return await _db.Robots
+            .OrderBy(r => r.Name)
+            .ToListAsync();
+    }
 }

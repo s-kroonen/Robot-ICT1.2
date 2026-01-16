@@ -1,0 +1,22 @@
+@typeparam T
+
+<svg width="100%" height="200">
+    @for (int i = 1; i < Points.Count; i++)
+    {
+        <line x1="@X(i - 1)" y1="@Y(i - 1)"
+              x2="@X(i)" y2="@Y(i)"
+              stroke="blue" />
+    }
+</svg>
+
+@code {
+    [Parameter] public IReadOnlyList<T> Data { get; set; } = new List<T>();
+    [Parameter] public Func<T, double> ValueSelector { get; set; } = default!;
+    [Parameter] public Func<T, DateTime> TimeSelector { get; set; } = default!;
+
+    private List<(DateTime time, double value)> Points =>
+        Data.Select(d => (TimeSelector(d), ValueSelector(d))).ToList();
+
+    private double X(int i) => i * (800.0 / Math.Max(1, Points.Count - 1));
+    private double Y(int i) => 180 - Points[i].value * 2;
+}

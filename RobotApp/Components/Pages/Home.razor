@@ -1,66 +1,115 @@
 ﻿@page "/"
-@using System.ComponentModel.DataAnnotations
+@using RobotApp.Components.Layout
+@using RobotApp.Models
+@using RobotApp.Models.Measurements
+@using RobotApp.Repositories
+@inject IRobotRepository Robots
+@inject IMeasurementRepository Measurements
 @rendermode InteractiveServer
 
-<h3>Gebruiker opslaan</h3>
+<h3>Robot History</h3>
 
-<EditForm Model="@model" OnValidSubmit="HandleValidSubmit">
-    <DataAnnotationsValidator />
-    <ValidationSummary />
-    <div class="col-sm-6">
-    <div class="form-group mt-2">
-        <label for="inputNaam">Naam</label>
-        <InputText type="text" class="form-control" id="inputNaam" aria-describedby="emailHelp" @bind-Value="@model.Naam" />
-        <ValidationMessage For="@(() => model.Naam)" />
+<div class="row g-2 mb-3 align-items-end">
+    <div class="col-md-4">
+        <label class="form-label">Robot</label>
+        <select class="form-select" @bind="SelectedRobot">
+            <option value="">Select robot</option>
+            @foreach (var r in RobotList)
+            {
+                <option value="@r.Name">@r.Name</option>
+            }
+        </select>
     </div>
-    <div class="form-group mt-2">
-        <label for="inputLeeftijd">Leeftijd</label>
-        <InputNumber type="number" class="form-control" id="inputLeeftijd" @bind-Value="@model.Leeftijd" />
-         <ValidationMessage For="@(() => model.Leeftijd)" />
-    </div>
-    <div class="form-check mt-2">
-        <InputCheckbox type="checkbox" id="isActief" class="form-check-input" @bind-Value="@model.IsActief"/>
-        <label class="form-check-label" for="isActief">User actief</label>
-        <ValidationMessage For="@(() => model.IsActief)" />
-    </div>
-    <div>
-     <button type="submit" class="btn btn-primary">Gebruiker opslaan</button>
-    </div>
-    </div>
-</EditForm>
 
-@if(isSubmitted)
+    <div class="col-md-3">
+        <label class="form-label">From</label>
+        <input type="datetime-local" class="form-control" @bind="FromUtc" />
+    </div>
+
+    <div class="col-md-3">
+        <label class="form-label">To</label>
+        <input type="datetime-local" class="form-control" @bind="ToUtc" />
+    </div>
+
+    <div class="col-md-2">
+        <button class="btn btn-primary w-100" @onclick="LoadData">
+            Load
+        </button>
+    </div>
+</div>
+
+
+@if (Temperature.Any())
 {
-    <div class="alert alert-success mt-2" role="alert">
-        Gebruiker opgeslagen
-    </div>
+    <TimeSeriesLineChart
+        Title="Temperature"
+        YAxisLabel="°C"
+        Data="Temperature.Select(t => (t.Timestamp, t.Value)).ToList()" />
+}
+
+@if (Humidity.Any())
+{
+    <TimeSeriesLineChart
+        Title="Humidity"
+        YAxisLabel="%"
+        Data="Humidity.Select(h => (h.Timestamp, h.Value)).ToList()" />
+}
+
+@if (States.Any())
+{
+    <h5>📜 State events</h5>
+    <ul class="list-group">
+        @foreach (var s in States.OrderByDescending(s => s.Timestamp))
+        {
+            <li class="list-group-item">
+                <strong>@s.DisplayState</strong>
+                <div>@s.Message</div>
+                <small>@s.Timestamp.ToLocalTime()</small>
+            </li>
+        }
+    </ul>
 }
 
 @code {
+    private List<Robot> RobotList = new();
+    private string? SelectedRobot;
 
-    private bool isSubmitted = false;
+    private DateTime FromUtc = DateTime.UtcNow.AddHours(-24);
+    private DateTime ToUtc = DateTime.UtcNow;
 
-    private UserFormModel model = new UserFormModel();
-    
-    private void HandleValidSubmit()
+    private string FromLocal
     {
-        Console.WriteLine($"Form data incoming for {model.Naam}");
-        isSubmitted = true;
-      
+        get => FromUtc.ToLocalTime().ToString("yyyy-MM-ddTHH:mm");
+        set => FromUtc = DateTime.Parse(value).ToUniversalTime();
     }
 
-    @* protected override async Task OnInitializedAsync()
+    private string ToLocal
     {
-        // Load data from your repository
-    } *@
+        get => ToUtc.ToLocalTime().ToString("yyyy-MM-ddTHH:mm");
+        set => ToUtc = DateTime.Parse(value).ToUniversalTime();
+    }
 
-    public class UserFormModel
+    private List<TemperatureMeasurement> Temperature = new();
+    private List<HumidityMeasurement> Humidity = new();
+    private List<StateSnapshot> States = new();
+
+    protected override async Task OnInitializedAsync()
     {
-        [Required(ErrorMessage = "Naam is verplicht")]
-        public string? Naam { get; set; }
+        RobotList = (await Robots.GetAllAsync()).ToList();
+    }
 
-        [Range(18,100, ErrorMessage = "Leeftijd moet tussen de 18 en 100 zijn")]
-        public int Leeftijd { get; set; }
-        public bool IsActief { get; set; }
+    private async Task LoadData()
+    {
+        if (SelectedRobot is null)
+            return;
+
+        Temperature = (await Measurements.GetTemperatureAsync(
+            SelectedRobot, FromUtc, ToUtc)).ToList();
+
+        Humidity = (await Measurements.GetHumidityAsync(
+            SelectedRobot, FromUtc, ToUtc)).ToList();
+
+        States = (await Measurements.GetStatesAsync(
+            SelectedRobot, FromUtc, ToUtc)).ToList();
     }
 }
